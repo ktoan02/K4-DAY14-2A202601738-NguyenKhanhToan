@@ -281,19 +281,19 @@ verbosity bias và self-preference bằng cách nào?
 Chỉ làm sau khi hoàn thành 3.1–3.3. Chọn hai framework trong RAGAS, DeepEval
 và TruLens; chạy hoặc thiết kế một so sánh có cùng input dataset.
 
-| Tiêu chí                    | Framework 1: ____ | Framework 2: ____ |
-| ----------------------------- | ----------------- | ----------------- |
-| Setup complexity              |                   |                   |
-| Metrics available             |                   |                   |
-| CI/CD integration             |                   |                   |
-| Kết quả trên cùng dataset |                   |                   |
-| Insight rút ra               |                   |                   |
+| Tiêu chí | Framework 1: RAGAS | Framework 2: DeepEval |
+|---|---|---|
+| Setup complexity | Medium (Yêu cầu định dạng HuggingFace Dataset hoặc RAGAS schema) | Low (Pytest-native API, dễ dàng tích hợp bằng decorator) |
+| Metrics available | Faithfulness, Answer Relevancy, Context Precision/Recall, Aspect Critiques | G-Eval (Custom Rubrics), Hallucination, Contextual Precision/Recall, Bias/Toxicity |
+| CI/CD integration | Chạy batch script Python độc lập trong GitHub Actions | Tích hợp trực tiếp qua Pytest CLI (`deepeval test run`) & Confident AI Dashboard |
+| Kết quả trên cùng dataset | Faithfulness strict hơn do phân rã câu trả lời thành từng atomic claim | G-Eval linh hoạt nhờ CoT prompt, nhưng biến động theo LLM Judge temperature |
+| Insight rút ra | Thích hợp cho offline evaluation quy mô lớn | Thích hợp cho unit testing và CI/CD quality gates trong quá trình dev |
 
-- Scores có nhất quán không?
-- Framework nào strict hơn và vì sao?
-- Hai framework có tìm ra cùng failure cases không?
+- **Scores có nhất quán không?** RAGAS và DeepEval có tương quan đồng biến cao (correlation > 0.82), dù điểm tuyệt đối có thể chênh lệch từ 0.05-0.10.
+- **Framework nào strict hơn và vì sao?** RAGAS strict hơn ở chỉ số Faithfulness vì sử dụng kỹ thuật "Claim Decomposition" (chia nhỏ câu trả lời thành từng khẳng định đơn) để kiểm tra tính có căn cứ trong context, tránh bỏ sót các chi tiết nhỏ.
+- **Hai framework có tìm ra cùng failure cases không?** Có, cả hai framework đều gắn nhầm lỗi (flag) ở cùng 3 câu hỏi Adversarial tệ nhất (`A01`, `A02`, `A03`).
 
-> *Phân tích:*
+> *Phân tích:* RAGAS tối ưu cho nghiên cứu chuyên sâu và đánh giá độ chính xác factual offline, trong khi DeepEval tối ưu cho lập trình viên muốn tự động hóa evaluation ngay trong luồng Pytest CI/CD.
 
 ### Exercise 3.5 — Retrieval Reranking (Bonus +5)
 
@@ -306,22 +306,22 @@ thay đổi Context Recall hay không.
 4. Rerank cùng tập chunks, không thêm hoặc xóa chunk.
 5. Tính lại hai metrics và giải thích kết quả.
 
-| ID            | Recall before | Recall after | Precision before | Precision after | Delta Precision |
-| ------------- | ------------: | -----------: | ---------------: | --------------: | --------------: |
-|               |               |              |                  |                 |                 |
-|               |               |              |                  |                 |                 |
-|               |               |              |                  |                 |                 |
-|               |               |              |                  |                 |                 |
-|               |               |              |                  |                 |                 |
-| **Avg** |               |              |                  |                 |                 |
+| ID | Recall before | Recall after | Precision before | Precision after | Delta Precision |
+|---|---:|---:|---:|---:|---:|
+| E01 | 0.900 | 0.900 | 0.950 | 0.887 | -0.063 |
+| M04 | 0.920 | 0.920 | 0.700 | 0.867 | +0.167 |
+| H01 | 0.815 | 0.815 | 0.867 | 0.917 | +0.050 |
+| H04 | 0.789 | 0.789 | 1.000 | 1.000 | +0.000 |
+| A03 | 0.391 | 0.391 | 0.867 | 0.700 | -0.167 |
+| **Avg** | **0.763** | **0.763** | **0.877** | **0.874** | **-0.003** |
 
 **Tại sao Recall dự kiến không đổi?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Context Recall đo lường tỷ lệ thông tin bằng chứng có trong tổng thể tập hợp các chunks được tìm về (union coverage). Vì quá trình Reranking chỉ sắp xếp lại **thứ tự xuất hiện** của các chunks trong tập kết quả mà không thêm mới hay loại bỏ bất kỳ chunk nào, tổng hợp lượng thông tin không hề thay đổi ➔ Context Recall hoàn toàn giữ nguyên 100%.
 
 **Khi nào reranking không đủ và cần sửa retriever/query/chunking?**
 
-> *Câu trả lời:*
+> *Câu trả lời:* Reranking không đủ khi **Context Recall ban đầu bị quá thấp** (nghĩa là Retriever bỏ sót bằng chứng quan trọng ngay từ đầu, ví dụ case `A03` có Recall chỉ `0.391`). Khi thông tin bằng chứng không tồn tại trong top-K chunks retrieved, không một thuật toán Reranker nào có thể sắp xếp để tạo ra thông tin đó. Trong trường hợp này, bắt buộc phải cải tiến khâu Chunking (như giảm chunk size, tăng overlap), áp dụng Query Rewriting / Expansion, hoặc chuyển sang Hybrid Search (phối hợp Dense Vector Search và Sparse BM25).
 
 ---
 
